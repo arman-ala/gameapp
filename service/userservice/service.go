@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"go_cast/S11P01-game/entity"
 	"go_cast/S11P01-game/pkg/name"
+	"go_cast/S11P01-game/pkg/password"
 	"go_cast/S11P01-game/pkg/phonenumber"
 )
 
@@ -16,12 +17,12 @@ type Repository interface {
 	// so we need to return error too
 	IsPhoneNumberUnique(phoneNumber string) (bool, error)
 	Register(user entity.User) (entity.User, error)
-	DoesPhoneNumberExist(phonenumber string) (bool, error)
 }
 
 type RegisterRequest struct {
 	Name        string `json:"full_name"`
 	PhoneNumber string `json:"phone_number"`
+	Password    string `json:"password"`
 }
 
 type RegisterResponse struct {
@@ -71,11 +72,20 @@ func (s Service) Register(req RegisterRequest) (res RegisterResponse, err error)
 			return RegisterResponse{}, fmt.Errorf("name is not valid")
 		}
 	}
+
+	// validate password
+	if isValid, err := password.IsValid(req.Password); err != nil || !isValid {
+		if err != nil || !isValid {
+			return RegisterResponse{}, err
+		}
+	}
+
 	// create new user
 	user := entity.User{
 		ID:          0,
 		Name:        req.Name,
 		PhoneNumber: req.PhoneNumber,
+		Password:    req.Password,
 	}
 	// create new user in the storage (file, database, etc.)
 	if createdUser, err := s.repo.Register(user); err != nil {
@@ -89,10 +99,6 @@ func (s Service) Register(req RegisterRequest) (res RegisterResponse, err error)
 
 func (s Service) Login(req LoginRequest) (res LoginResponse, err error) {
 	// check phone number existence in repository
-	exists, err := s.repo.DoesPhoneNumberExist(req.PhoneNumber)
-	if err!= nil || !exists{
-		return LoginResponse{}, fmt.Errorf("unexpected error: %v", err)
-	}
 
 	// get th user by phone number
 	return
