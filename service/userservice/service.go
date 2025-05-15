@@ -6,10 +6,46 @@ import (
 	"go_cast/S11P01-game/pkg/name"
 	"go_cast/S11P01-game/pkg/password"
 	"go_cast/S11P01-game/pkg/phonenumber"
+	"time"
+
+	jwt "github.com/golang-jwt/jwt/v5"
 )
 
+type Claims struct {
+	jwt.RegisteredClaims
+	UserID uint `json:"user_id"`
+}
+
+func createToken(user uint, signKey string) (string, error) {
+	// create a signer for rsa 256
+	t := jwt.New(jwt.GetSigningMethod("RS256"))
+
+	// set our claims
+	t.Claims = &Claims{
+		RegisteredClaims: jwt.RegisteredClaims{
+			// set the expire time
+			// see https://datatracker.ietf.org/doc/html/rfc7519#section-4.1.4
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * 24)),
+			NotBefore: jwt.NewNumericDate(time.Now()),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+		},
+		UserID: user,
+	}
+
+	// Create token string
+	return t.SignedString(signKey)
+}
+
 type Service struct {
-	repo Repository
+	signKey string
+	repo    Repository
+}
+
+func New(repo Repository, signKey string) Service {
+	return Service{
+		repo:    repo,
+		signKey: signKey,
+	}
 }
 
 type Repository interface {
@@ -29,21 +65,6 @@ type RegisterRequest struct {
 
 type RegisterResponse struct {
 	User entity.User `json:"user"`
-}
-
-type LoginRequest struct {
-	PhoneNumber string `json:"phone_number"`
-	Password    string `json:"password"`
-}
-
-type LoginResponse struct {
-	User entity.User `json:"user"`
-}
-
-func New(repo Repository) Service {
-	return Service{
-		repo: repo,
-	}
 }
 
 func (s Service) Register(req RegisterRequest) (res RegisterResponse, err error) {
@@ -98,6 +119,15 @@ func (s Service) Register(req RegisterRequest) (res RegisterResponse, err error)
 	return res, nil
 }
 
+type LoginRequest struct {
+	PhoneNumber string `json:"phone_number"`
+	Password    string `json:"password"`
+}
+
+type LoginResponse struct {
+	AccessToken string `json:"access_token"`
+}
+
 func (s Service) Login(req LoginRequest) (res LoginResponse, err error) {
 	// check phone number existence in repository and get the user
 	// if user is not found, return error
@@ -113,9 +143,14 @@ func (s Service) Login(req LoginRequest) (res LoginResponse, err error) {
 		return LoginResponse{}, fmt.Errorf("password is not correct")
 	}
 
+	token, err := createToken(user.ID, string(s.signKey))
+	if err != nil {
+		return LoginResponse{}, fmt.Errorf("unexpected error: %v", err)
+	}
+
 	// return user
 	return LoginResponse{
-		User: user,
+		AccessToken: token,
 	}, nil
 }
 

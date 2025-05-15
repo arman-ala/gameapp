@@ -10,14 +10,18 @@ import (
 	"strconv"
 )
 
+const (
+	SECRET_KEY = "jwt_secret"
+)
+
 func main() {
 	http.HandleFunc("/users/register", userRegisterHandler)
 	http.HandleFunc("/users/login", userLoginHandler)
 	http.HandleFunc("/health-check", healthCheckHandler)
 	http.HandleFunc("/users/profile", getProfileHandler)
 
-	fmt.Println("Server is running on port 8080")
-	http.ListenAndServe(":8080", nil)
+	fmt.Println("Server is running on port 8000")
+	http.ListenAndServe(":8000", nil)
 	/*
 		Second method
 		mux := http.NewServeMux()
@@ -55,15 +59,22 @@ func userRegisterHandler(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 	mysqlRepo := mysql.New()
-	userSvc := userservice.New(mysqlRepo)
+	userSvc := userservice.New(mysqlRepo, SECRET_KEY)
 	response, err := userSvc.Register(requestBody)
 	if err != nil {
 		res.Write([]byte(fmt.Sprintf(`{"error": "%s"}`, err.Error())))
 		return
 	}
 
-	res.WriteHeader(http.StatusCreated)
-	res.Write([]byte(fmt.Sprintf(`{"user": "%v"}`, response.User)))
+	output, err := json.Marshal(response)
+	if err != nil {
+		res.WriteHeader(http.StatusInternalServerError)
+		res.Write([]byte(fmt.Sprintf(`{"error": "%s"}`, err.Error())))
+		return
+	}
+
+	res.WriteHeader(http.StatusAccepted)
+	res.Write(output)
 
 	return
 }
@@ -91,28 +102,24 @@ func userLoginHandler(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 	mysqlRepo := mysql.New()
-	userSvc := userservice.New(mysqlRepo)
+	userSvc := userservice.New(mysqlRepo, SECRET_KEY)
 	response, err := userSvc.Login(requestBody)
 	if err != nil {
 		res.Write([]byte(fmt.Sprintf(`{"error": "%s"}`, err.Error())))
 		return
 	}
 
-	res.WriteHeader(http.StatusAccepted)
-	res.Write([]byte(fmt.Sprintf(`{"user": "%v"}`, response.User)))
-
-	return
-}
-
-func healthCheckHandler(res http.ResponseWriter, req *http.Request) {
-	if req.Method != http.MethodGet {
-		http.Error(res, "Invalid Method", http.StatusMethodNotAllowed)
-		return
-	} else {
-		res.WriteHeader(http.StatusOK)
-		fmt.Fprint(res, "OK")
+	output, err := json.Marshal(response)
+	if err != nil {
+		res.WriteHeader(http.StatusInternalServerError)
+		res.Write([]byte(fmt.Sprintf(`{"error": "%s"}`, err.Error())))
 		return
 	}
+
+	res.WriteHeader(http.StatusAccepted)
+	res.Write(output)
+
+	return
 }
 
 func getProfileHandler(res http.ResponseWriter, req *http.Request) {
@@ -129,7 +136,7 @@ func getProfileHandler(res http.ResponseWriter, req *http.Request) {
 		}
 
 		mysqlRepo := mysql.New()
-		userSvc := userservice.New(mysqlRepo)
+		userSvc := userservice.New(mysqlRepo, SECRET_KEY)
 		id, err := strconv.Atoi(userID)
 		if err != nil {
 			res.WriteHeader(http.StatusBadRequest)
@@ -152,6 +159,17 @@ func getProfileHandler(res http.ResponseWriter, req *http.Request) {
 			return
 		}
 		res.Write(data)
+		return
+	}
+}
+
+func healthCheckHandler(res http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodGet {
+		http.Error(res, "Invalid Method", http.StatusMethodNotAllowed)
+		return
+	} else {
+		res.WriteHeader(http.StatusOK)
+		fmt.Fprint(res, "OK")
 		return
 	}
 }
