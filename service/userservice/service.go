@@ -18,6 +18,7 @@ type Repository interface {
 	IsPhoneNumberUnique(phoneNumber string) (bool, error)
 	Register(user entity.User) (entity.User, error)
 	GetUserByPhoneNumber(phoneNumber string) (entity.User, bool, error)
+	GetUserByID(id uint) (entity.User, error)
 }
 
 type RegisterRequest struct {
@@ -115,5 +116,25 @@ func (s Service) Login(req LoginRequest) (res LoginResponse, err error) {
 	// return user
 	return LoginResponse{
 		User: user,
+	}, nil
+}
+
+type ProfileRequest struct {
+	UserID uint
+}
+
+type ProfileResponse struct {
+	Name string `json:"name"`
+}
+
+// all requests inputs for service should be validated and sanitized
+func (s Service) GetProfile(req ProfileRequest) (res ProfileResponse, err error) {
+	user, err := s.repo.GetUserByID(req.UserID)
+	if err != nil {
+		// TODO - we can use rich errors to return more information about the error
+		return ProfileResponse{}, err
+	}
+	return ProfileResponse{
+		Name: user.Name,
 	}, nil
 }

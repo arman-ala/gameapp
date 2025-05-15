@@ -46,8 +46,6 @@ func userRegisterHandler(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	fmt.Printf("Data: %s\n", data)
-
 	var requestBody userservice.RegisterRequest
 	err = json.Unmarshal(data, &requestBody)
 	if err != nil {
