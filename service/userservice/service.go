@@ -17,6 +17,7 @@ type Repository interface {
 	// so we need to return error too
 	IsPhoneNumberUnique(phoneNumber string) (bool, error)
 	Register(user entity.User) (entity.User, error)
+	GetUserByPhoneNumber(phoneNumber string) (entity.User, error)
 }
 
 type RegisterRequest struct {
@@ -35,7 +36,7 @@ type LoginRequest struct {
 }
 
 type LoginResponse struct {
-	// User entity.User `json:"user"`
+	User entity.User `json:"user"`
 }
 
 func New(repo Repository) Service {
@@ -46,7 +47,7 @@ func New(repo Repository) Service {
 
 func (s Service) Register(req RegisterRequest) (res RegisterResponse, err error) {
 	// TODO - we should verify the phone number by verifying the code sent to the phone number
-
+	fmt.Printf("phone number %s is unique\n", req.PhoneNumber)
 	// phone number validation
 	err = phonenumber.IsValid(req.PhoneNumber)
 	if err != nil {
@@ -85,7 +86,7 @@ func (s Service) Register(req RegisterRequest) (res RegisterResponse, err error)
 		ID:          0,
 		Name:        req.Name,
 		PhoneNumber: req.PhoneNumber,
-		Password:    req.Password,
+		Password:    password.GetMD5Hash(req.Password),
 	}
 	// create new user in the storage (file, database, etc.)
 	if createdUser, err := s.repo.Register(user); err != nil {
@@ -98,8 +99,20 @@ func (s Service) Register(req RegisterRequest) (res RegisterResponse, err error)
 }
 
 func (s Service) Login(req LoginRequest) (res LoginResponse, err error) {
-	// check phone number existence in repository
+	// check phone number existence in repository and get the user
+	// if user is not found, return error
+	user, err := s.repo.GetUserByPhoneNumber(req.PhoneNumber)
+	if err != nil {
+		return LoginResponse{}, err
+	}
 
-	// get th user by phone number
-	return
+	// check password hashed with md5
+	if user.Password != password.GetMD5Hash(req.Password) {
+		return LoginResponse{}, fmt.Errorf("password is not correct")
+	}
+
+	// return user
+	return LoginResponse{
+		User: user,
+	}, nil
 }

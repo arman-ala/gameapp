@@ -1,6 +1,8 @@
 package password
 
 import (
+	"crypto/md5"
+	"encoding/hex"
 	"fmt"
 	"unicode"
 )
@@ -21,13 +23,34 @@ func IsValid(password string) (valid bool, err error) {
 	}
 
 	// check password characters
-	for i := 0; i < len(password); {
-		if unicode.IsDigit(rune(password[i])) == true || unicode.IsLetter(rune(password[i])) == true || rune(password[i]) == '_' || rune(password[i]) == '-' || rune(password[i]) == '@' {
-			i++
-		} else {
+	// Define valid special characters
+	validSpecialChars := []rune{'_', '-', '@'}
+
+	// Convert password to runes for proper Unicode handling
+	passwordRunes := []rune(password)
+
+	// Check each character in the password
+	for _, char := range passwordRunes {
+		isValid := unicode.IsLetter(char) ||
+			unicode.IsDigit(char)
+
+		// Check if char is one of the allowed special characters
+		for _, validChar := range validSpecialChars {
+			if char == validChar {
+				isValid = true
+				break
+			}
+		}
+
+		if !isValid {
 			return false, INVALID_PASSWORD_CHARACTER
 		}
 	}
 
 	return true, nil
+}
+
+func GetMD5Hash(password string) string {
+	hash := md5.Sum([]byte(password))
+	return hex.EncodeToString(hash[:])
 }
