@@ -17,7 +17,7 @@ type Repository interface {
 	// so we need to return error too
 	IsPhoneNumberUnique(phoneNumber string) (bool, error)
 	Register(user entity.User) (entity.User, error)
-	GetUserByPhoneNumber(phoneNumber string) (entity.User, error)
+	GetUserByPhoneNumber(phoneNumber string) (entity.User, bool, error)
 }
 
 type RegisterRequest struct {
@@ -47,7 +47,6 @@ func New(repo Repository) Service {
 
 func (s Service) Register(req RegisterRequest) (res RegisterResponse, err error) {
 	// TODO - we should verify the phone number by verifying the code sent to the phone number
-	fmt.Printf("phone number %s is unique\n", req.PhoneNumber)
 	// phone number validation
 	err = phonenumber.IsValid(req.PhoneNumber)
 	if err != nil {
@@ -101,9 +100,11 @@ func (s Service) Register(req RegisterRequest) (res RegisterResponse, err error)
 func (s Service) Login(req LoginRequest) (res LoginResponse, err error) {
 	// check phone number existence in repository and get the user
 	// if user is not found, return error
-	user, err := s.repo.GetUserByPhoneNumber(req.PhoneNumber)
+	user, exist, err := s.repo.GetUserByPhoneNumber(req.PhoneNumber)
 	if err != nil {
 		return LoginResponse{}, err
+	} else if !exist {
+		return LoginResponse{}, fmt.Errorf("there is no such phone number in repository")
 	}
 
 	// check password hashed with md5

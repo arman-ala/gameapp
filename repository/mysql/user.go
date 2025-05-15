@@ -1,6 +1,7 @@
 package mysql
 
 import (
+	"database/sql"
 	"fmt"
 	"go_cast/S11P01-game/entity"
 )
@@ -9,15 +10,12 @@ func (d *MySQLDB) IsPhoneNumberUnique(phoneNumber string) (bool, error) {
 	var count int
 	err := d.db.QueryRow("SELECT COUNT(*) FROM users WHERE phone_number = ?", phoneNumber).Scan(&count)
 	if err != nil {
-		if err.Error() == "sql: no rows in result set" {
-			fmt.Printf("phone number %s is unique\n", phoneNumber)
+		if err == sql.ErrNoRows {
 			return true, nil
 		}
-		fmt.Printf("phone number %s is unique\n", phoneNumber)
 		return false, fmt.Errorf("failed to check phone number uniqueness: %w", err)
 	}
-	
-	fmt.Printf("phone number %s is unique\n", phoneNumber)
+
 	return count == 0, nil
 }
 
@@ -34,11 +32,11 @@ func (d *MySQLDB) Register(user entity.User) (entity.User, error) {
 	return user, nil
 }
 
-func (d *MySQLDB) GetUserByPhoneNumber(phoneNumber string) (entity.User, error) {
+func (d *MySQLDB) GetUserByPhoneNumber(phoneNumber string) (entity.User, bool, error) {
 	var user entity.User
 	err := d.db.QueryRow("SELECT id, name, phone_number, password FROM users WHERE phone_number = ?", phoneNumber).Scan(&user.ID, &user.Name, &user.PhoneNumber, &user.Password)
 	if err != nil {
-		return entity.User{}, fmt.Errorf("can not get user by phone number: %w", err)
+		return entity.User{}, false, fmt.Errorf("can not get user by phone number: %w", err)
 	}
-	return user, nil
+	return user, true, nil
 }
