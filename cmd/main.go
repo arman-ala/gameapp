@@ -7,12 +7,14 @@ import (
 	"go_cast/S11P01-game/service/userservice"
 	"io"
 	"net/http"
+	"strconv"
 )
 
 func main() {
 	http.HandleFunc("/users/register", userRegisterHandler)
 	http.HandleFunc("/users/login", userLoginHandler)
 	http.HandleFunc("/health-check", healthCheckHandler)
+	http.HandleFunc("/users/profile", getProfileHandler)
 
 	fmt.Println("Server is running on port 8080")
 	http.ListenAndServe(":8080", nil)
@@ -109,6 +111,47 @@ func healthCheckHandler(res http.ResponseWriter, req *http.Request) {
 	} else {
 		res.WriteHeader(http.StatusOK)
 		fmt.Fprint(res, "OK")
+		return
+	}
+}
+
+func getProfileHandler(res http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodGet {
+		http.Error(res, "Invalid Method", http.StatusMethodNotAllowed)
+		return
+	} else {
+		// I have to get UserID from URL query
+		userID := req.URL.Query().Get("user_id")
+		if userID == "" {
+			res.Write([]byte(`{"error": "user_id is needed"}`))
+			res.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		mysqlRepo := mysql.New()
+		userSvc := userservice.New(mysqlRepo)
+		id, err := strconv.Atoi(userID)
+		if err != nil {
+			res.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(res, "Invalid user_id parameter: %s", userID)
+			return
+		}
+		reqUser := userservice.ProfileRequest{
+			UserID: uint(id),
+		}
+		response, err := userSvc.GetProfile(reqUser)
+		if err != nil {
+			http.Error(res, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		res.WriteHeader(http.StatusOK)
+		data, err := json.Marshal(response)
+		if err != nil {
+			http.Error(res, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		res.Write(data)
 		return
 	}
 }
